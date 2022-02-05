@@ -1,0 +1,3 @@
+[submodule "crates/bevyutil"]
+	path = crates/bevyutil
+	url = git@github.com:notverymoe/nvm-bevyutil.git
