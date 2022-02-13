@@ -65,8 +65,8 @@ impl<T: Default + Copy + Eq + Add<Output = T> + AddAssign<T> + SubAssign<T> + Or
     }
 
     pub fn try_recv(&mut self, count: T) -> Option<(ResourceID, T)> {
-        if let Some(resource) = self.resource() {
-            Some((resource, count.min(self.stored)))
+        if self.stored != Default::default() {
+            Some((unsafe{ self.resource.assume_init() }, count.min(self.stored)))
         } else {
             None
         }

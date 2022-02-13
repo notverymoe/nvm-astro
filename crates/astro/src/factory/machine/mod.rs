@@ -20,13 +20,13 @@ use super::FactoryPool;
 
 pub fn connection_updater(
     pool: Res<FactoryPool>, 
-    mut q_connections: Query<(&mut Connection,)>, 
+    mut q_connections: Query<(&ConnectionIO, &mut Connection,)>, 
     q_ports: Query<&Ports>,
 ) {
-    //for (mut connection,) in q_connections.iter_mut() {
-    q_connections.par_for_each_mut(&pool, 1024, |(mut connection,)|{
-        connection.tick();
-        connection.try_recv(&q_ports);
-        connection.try_send(&q_ports);
+    //for (connection_ref, mut connection,) in q_connections.iter_mut() {
+    q_connections.par_for_each_mut(&pool, 1_000_000, |(connection_ref, mut connection,)|{
+        connection.update();
+        connection_ref.try_recv(&mut connection, &q_ports);
+        connection_ref.try_send(&mut connection, &q_ports);
     });
 }

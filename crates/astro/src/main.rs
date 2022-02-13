@@ -3,18 +3,23 @@
 \*=====================================================================*/
 
 use astro::{factory::FactoryPlugins, client::{freecam_system, Freecam, MouseLock}};
-use bevy::{prelude::{Vec3, App, Commands, PerspectiveCameraBundle, shape, Mesh, Color, Transform, Assets, ResMut, AssetServer, Res, OrthographicProjection}, DefaultPlugins, pbr::{StandardMaterial, PbrBundle, DirectionalLight, DirectionalLightBundle}, math::Quat};
+use bevy::{prelude::*, math::Quat, MinimalPlugins};
+use dev::FactoryPerfTest;
+
+pub mod dev;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(MinimalPlugins)
+//        .add_plugins(DefaultPlugins)
         .add_plugins(FactoryPlugins)
-        .insert_resource(MouseLock(true))
-        .add_system(freecam_system)
-        .add_startup_system(setup_dev)
+//        .insert_resource(MouseLock(true))
+//        .add_system(freecam_system)
+//        .add_startup_system(setup_dev)
+        .add_plugin(FactoryPerfTest)
         .run();
 }
-
+/*
 fn setup_dev(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -67,3 +72,4 @@ fn setup_dev(
     });
 
 }
+*/

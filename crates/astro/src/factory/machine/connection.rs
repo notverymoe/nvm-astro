@@ -5,109 +5,130 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::{Entity, Query, Component};
-use nvm_bevyutil::{sync::SyncMutRef, try_unwrap_option};
 
-use super::{PortKey, ResourceID, Ports, Port, PortCapacity};
+use super::{ResourceID, PortKey, Ports, Port};
+use nvm_bevyutil::{try_unwrap_option, sync::SyncMutRef};
 
+pub type ConnectionDuration = u16;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ConnectionPacket {
-    pub time:     u32,
-    pub resource: ResourceID,
-    pub stored:   PortCapacity,
-}
-
-#[derive(Component, Debug)]
+#[derive(Component)]
 pub struct Connection {
-    from: (Entity, PortKey),
-    to:   (Entity, PortKey),
+    length: ConnectionDuration,
+    queue: VecDeque<ConnectionDuration>,
+    resource_ids: VecDeque<ResourceID>,
 
-    transfer_count: PortCapacity,
-    transfer_time:  u32,
-    packets: VecDeque<ConnectionPacket>,
+    head_idx: u16,
+    tail_distance: ConnectionDuration,
 }
 
 impl Connection {
 
+    pub fn new(length: ConnectionDuration) -> Self {
+        Self{
+            length,
+            queue:        VecDeque::with_capacity(length as usize),
+            resource_ids: VecDeque::with_capacity(length as usize),
+            head_idx: 0,
+            tail_distance: length,
+        }
+    }
+
+    pub fn update(&mut self) {
+        if self.head_idx as usize >= self.queue.len() {
+            return;
+        }
+
+        self.queue[self.head_idx as usize] -= 1;
+        self.tail_distance += 1;
+        while self.can_advance_head() { self.head_idx += 1; }
+    }
+
+    fn can_advance_head(&mut self) -> bool {
+        let head = self.head_idx as usize;
+        if head >= self.queue.len() { return false; }
+        if self.queue[head] > 1 { return false; }
+        true
+    }
+
+    pub fn try_insert(&mut self, resource: ResourceID) -> bool {
+
+        if self.can_recieve() {
+            if self.queue.len() > self.length as usize {
+                let mut a = Vec::new();
+                self.resolve(&mut a);
+                println!("{:?} {:?}", self.queue, a);
+            }
+            self.queue.push_back(self.tail_distance);
+            self.resource_ids.push_back(resource);
+            self.tail_distance = 0;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn resolve(&self, destination: &mut Vec<i32>) {
+        let mut counter: u16 = 0;
+        destination.extend(self.queue.iter().map(|v| { counter += v; self.length as i32 - counter as i32  }));
+    } 
+
+    pub fn can_recieve(&self) -> bool {
+        self.tail_distance != 0
+    }
+}
+
+impl Connection {
+    pub fn pop_send(&mut self) {
+        if self.queue.is_empty() { return; }
+
+        self.head_idx = 0;
+        self.queue.pop_front();
+        self.resource_ids.pop_front();
+        if !self.queue.is_empty() { 
+            self.queue[0] += 1; 
+        } else {
+            self.tail_distance = self.length;
+        }
+    }
+
+    pub fn can_send(&self) -> bool {
+        let head = self.head_idx as usize;
+        head < self.queue.len() && (head != 0 || self.queue[0] == 0)
+    }
+
+    pub fn peek_send(&self) -> Option<ResourceID> {
+        self.resource_ids.get(0).copied()
+    }
+}
+
+
+#[derive(Component)]
+pub struct ConnectionIO {
+    from: (Entity, PortKey), 
+    to: (Entity, PortKey)
+}
+
+impl ConnectionIO {
+
     pub fn new(
-        transfer_count: PortCapacity, 
-        transfer_time: u32, 
         from: (Entity, PortKey), 
         to: (Entity, PortKey)
     ) -> Self {
         assert!(from.0 != to.0 || from.1 != to.1, "Machine cannot connect to the same slot on itself");
-        Self{
-            from,
-            to,
-            transfer_count,
-            transfer_time,
-            packets: VecDeque::with_capacity((transfer_time as usize)+1), // Should never re-allocate
+        Self{from, to}
+    }
+
+    pub fn try_send(&self, connection: &mut Connection, q: &Query<&Ports>) {
+        if !connection.can_send() { return; }
+        let send = connection.peek_send().unwrap();
+        if let Some(sent) = unsafe { q.get_unchecked(self.to.0) }.ok().and_then(|v| unsafe { v.get_mut_unchecked(self.to.1) }.send(send, 1).ok()) {
+            if sent > 0 { connection.pop_send(); }
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &ConnectionPacket> {
-        self.packets.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.packets.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.packets.is_empty()
-    }
-
-    pub fn can_recieve(&self) -> bool {
-        self.packets.is_empty() || self.packets[self.packets.len()-1].time != 0
-    }
-}
-
-
-impl Connection {
-    pub fn tick(&mut self) {
-        let mut tick_lim = self.transfer_time;
-        for packet in self.packets.iter_mut() {
-            if packet.time + 1 < tick_lim { packet.time += 1; }
-            tick_lim = packet.time;
-        }
-    }
-
-    pub fn try_send(&mut self, q: &Query<&Ports>) {
-        let last = try_unwrap_option!(self.get_send_packet());
-        let took = try_unwrap_option!(self.lookup_to(q).and_then(|mut v| v.send(last.resource, last.stored).ok()));
-        if last.stored <= took { self.pop(); }
-    }
-
-    pub fn try_recv(&mut self, q: &Query<&Ports>) {
-        if !self.can_recieve() { return; }
-        let (kind, stored) = try_unwrap_option!(self.lookup_from(q).and_then(|mut v| v.recv(self.transfer_count)));
-        self.push(ConnectionPacket{resource: kind, stored, time: 0});
-    }
-
-    fn lookup_from<'a>(&self, q: &'a Query<&Ports>) -> Option<SyncMutRef<'a, Port>> {
-        q.get(self.from.0).ok().and_then(|v| v.get(self.from.1))
-    }
-
-    fn lookup_to<'a>(&self, q: &'a Query<&Ports>) -> Option<SyncMutRef<'a, Port>> {
-        q.get(self.to.0).ok().and_then(|v| v.get(self.to.1))
-    }
-}
-
-
-impl Connection {
-
-    fn push(&mut self, packet: ConnectionPacket) {
-        self.packets.push_back(packet);
-    }
-
-    fn pop(&mut self) {
-        self.packets.pop_front();
-    }
-
-    fn get_send_packet(&self) -> Option<ConnectionPacket> {
-        match !self.packets.is_empty() && (self.packets[0].time + 1 >= self.transfer_time) {
-            true  => Some(self.packets[0]),
-            false => None,
-        }
+    pub fn try_recv(&self, connection: &mut Connection, q: &Query<&Ports>) {
+        if !connection.can_recieve() { return; }
+        let (resource, count) = try_unwrap_option!(unsafe { q.get_unchecked(self.from.0) }.ok().and_then(|v| unsafe { v.get_mut_unchecked(self.from.1) }.recv(1)));
+        if count > 0 { connection.try_insert(resource); }
     }
 }

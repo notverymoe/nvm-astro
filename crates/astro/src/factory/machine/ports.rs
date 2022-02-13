@@ -3,7 +3,7 @@
 \*=====================================================================*/
 
 use bevy::prelude::Component;
-use nvm_bevyutil::sync::{SyncCell, SyncMutRef};
+use std::cell::UnsafeCell;
 
 use super::{ResourceID, ResourceStore};
 
@@ -11,15 +11,17 @@ pub type PortKey = u8;
 
 #[derive(Component, Default)]
 pub struct Ports {
-    ports: Box<[SyncCell<Port>]>,
+    ports: Box<[UnsafeCell<Port>]>,
 }
+
+unsafe impl Sync for Ports {}
 
 impl Ports {
 
     pub fn new(count: PortKey) -> Self {
         let count = count as usize;
         let mut ports = Vec::with_capacity(count);
-        ports.resize_with(count, SyncCell::<Port>::default);
+        ports.resize_with(count, UnsafeCell::default);
         Self{ ports: ports.into_boxed_slice(), }
     }
 
@@ -27,17 +29,18 @@ impl Ports {
         self.ports.len() as PortKey
     }
 
-    pub fn get(&self, idx: PortKey) -> Option<SyncMutRef<Port>> {
-        self.ports.get(idx as usize).map(|v| v.borrow_mut())
+    pub fn get(&self, idx: PortKey) -> Option<&Port> {
+        self.ports.get(idx as usize).map(|v| unsafe{ &*v.get() })
     }
 
     pub fn get_mut(&mut self, idx: PortKey) -> Option<&mut Port> {
         self.ports.get_mut(idx as usize).map(|v| v.get_mut())
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Port> {
-        self.ports.iter_mut().map(|v| v.get_mut())
-    } 
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn get_mut_unchecked(&self, idx: PortKey) -> &mut Port {
+        &mut *self.ports.get_unchecked(idx as usize).get()
+    }
 }
 
 pub type PortCapacity = u16;
@@ -67,7 +70,7 @@ impl Port {
     }
 
     pub fn remaining(&self) -> PortCapacity {
-        self.capacity.saturating_sub(self.store.stored())
+        self.capacity - self.store.stored()
     }
 
     pub fn resource(&self) -> Option<ResourceID> {

@@ -3,7 +3,7 @@
 \*=====================================================================*/
 
 mod machine;
-use bevy::{prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion}, tasks::{TaskPool, TaskPoolBuilder, logical_core_count, physical_core_count}};
+use bevy::{prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion}, tasks::{TaskPool, TaskPoolBuilder}};
 pub use machine::*;
 
 mod power;
@@ -49,10 +49,10 @@ pub struct FactoryStagePlugin;
 
 impl Plugin for FactoryStagePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.schedule.add_stage_after(  CoreStage::Update,   FactoryStage::Power, SystemStage::parallel());
-        app.schedule.add_stage_after(FactoryStage::Power, FactoryStage::Machine, SystemStage::parallel());
+        app.schedule.add_stage_after(  CoreStage::Update,   FactoryStage::Power, SystemStage::single_threaded());
+        app.schedule.add_stage_after(FactoryStage::Power, FactoryStage::Machine, SystemStage::single_threaded());
 
-        let threads = (logical_core_count() - 4).max(physical_core_count() - 1);
+        let threads = 4;
         app.insert_resource(FactoryPool(TaskPoolBuilder::new().num_threads(threads).build()));
     }
 }
