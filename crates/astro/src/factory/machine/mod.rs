@@ -26,7 +26,7 @@ pub fn connection_updater(
     //for (connection_ref, mut connection,) in q_connections.iter_mut() {
     q_connections.par_for_each_mut(&pool, 1_000_000, |(connection_ref, mut connection,)|{
         connection.update();
-        connection_ref.try_recv(&mut connection, &q_ports);
-        connection_ref.try_send(&mut connection, &q_ports);
+        unsafe{ connection_ref.try_unchecked_recv(&mut connection, &q_ports); }
+        unsafe{ connection_ref.try_unchecked_send(&mut connection, &q_ports); }
     });
 }

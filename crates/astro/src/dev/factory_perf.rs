@@ -4,7 +4,7 @@
 
 use std::{time::Instant, collections::VecDeque};
 
-use astro::factory::{ResourceID, Ports, FactoryStage, ConnectionDuration, Connection, ConnectionIO, ResourceType, FactoryPool};
+use astro::factory::{ResourceID, Ports, FactoryStage, ConnectionDuration, Connection, ConnectionIO, ResourceType, FactoryPool, PortID};
 use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage, Res};
 
 pub struct FactoryPerfTest;
@@ -23,7 +23,7 @@ impl Plugin for FactoryPerfTest {
 #[derive(Component)]
 pub struct UnlimitedSource(ResourceID);
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PassthroughMachine;
 
 const PERF_TEST_SIZE:     usize = 5_000_000;
@@ -57,13 +57,13 @@ pub fn update_passthrough_machine(
 ) {
     q.par_for_each_mut(&pool, 1_000_000, |(mut port,)| {
     //for (mut port,) in q.iter_mut() {
-        if let Some((resource, count)) = port.get_mut(0).and_then(|v| v.recv(1)) {
-            if let Some(took) = port.get_mut(1).and_then(|v| v.send(resource, count).ok()) {
+        if let Some((resource, count)) = port.get_mut(PortID::A).recv(1) {
+            if let Ok(took) = port.get_mut(PortID::B).send(resource, count) {
                 if took < count {
-                    port.get_mut(0).unwrap().send(resource, count-took).unwrap();
+                    port.get_mut(PortID::A).send(resource, count-took).unwrap();
                 }
             } else {
-                port.get_mut(0).unwrap().send(resource, count).unwrap();
+                port.get_mut(PortID::A).send(resource, count).unwrap();
             }
         }
     });
@@ -75,8 +75,8 @@ pub fn update_unlimited_source(
 ) {
     q.par_for_each_mut(&pool, 1_000_000, |(UnlimitedSource(resource), mut port,)| {
     //for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
-        port.get_mut(1).unwrap().send(*resource, 1).unwrap();
-        port.get_mut(0).unwrap().recv(u16::MAX);
+        port.get_mut(PortID::B).send(*resource, 1).unwrap();
+        port.get_mut(PortID::A).recv(u16::MAX);
     });
 }
 
@@ -93,7 +93,7 @@ pub fn setup_performance_test(mut commands: Commands) {
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
     commands.spawn()
         .insert(Connection::new(length))
-        .insert(ConnectionIO::new((from, 1), (to, 0)));
+        .insert(ConnectionIO::new(from, PortID::B, to, PortID::A));
 }
 
 #[derive(Bundle)]
@@ -106,25 +106,16 @@ pub struct UnlimitedSourceBundle {
 impl UnlimitedSourceBundle {
     pub fn new(resource: ResourceID) -> Self {
         Self{
-            ports: Ports::new(2),
+            ports: Ports::default(),
             passthrough: UnlimitedSource(resource)
         }
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct PassthroughMachineBundle {
     ports: Ports,
     passthrough: PassthroughMachine,
-}
-
-impl Default for PassthroughMachineBundle {
-    fn default() -> Self {
-        Self{
-            ports: Ports::new(2),
-            passthrough: PassthroughMachine,
-        }
-    }
 }
 
 static RESOURCE_SPEED: ResourceType = ResourceType::new("SPEED");

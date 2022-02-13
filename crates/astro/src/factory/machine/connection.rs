@@ -6,8 +6,8 @@ use std::collections::VecDeque;
 
 use bevy::prelude::{Entity, Query, Component};
 
-use super::{ResourceID, PortKey, Ports, Port};
-use nvm_bevyutil::{try_unwrap_option, sync::SyncMutRef};
+use super::{ResourceID, Ports, Port, PortID};
+use nvm_bevyutil::try_unwrap_option;
 
 pub type ConnectionDuration = u16;
 
@@ -104,31 +104,68 @@ impl Connection {
 
 #[derive(Component)]
 pub struct ConnectionIO {
-    from: (Entity, PortKey), 
-    to: (Entity, PortKey)
+    from: Entity, 
+    to:   Entity,
+    ports: u8,
 }
 
 impl ConnectionIO {
 
     pub fn new(
-        from: (Entity, PortKey), 
-        to: (Entity, PortKey)
+        from: Entity, 
+        from_port: PortID, 
+        to: Entity, 
+        to_port: PortID,
     ) -> Self {
-        assert!(from.0 != to.0 || from.1 != to.1, "Machine cannot connect to the same slot on itself");
-        Self{from, to}
+        assert!(from != to || from_port != to_port, "Machine cannot connect to the same slot on itself");
+
+        let from_port = from_port as u8;
+        let   to_port =   to_port as u8;
+        Self{from, to, ports: from_port | (to_port << 2)}
     }
 
-    pub fn try_send(&self, connection: &mut Connection, q: &Query<&Ports>) {
+    pub unsafe fn try_unchecked_send(&self, connection: &mut Connection, q: &Query<&Ports>) {
         if !connection.can_send() { return; }
         let send = connection.peek_send().unwrap();
-        if let Some(sent) = unsafe { q.get_unchecked(self.to.0) }.ok().and_then(|v| unsafe { v.get_mut_unchecked(self.to.1) }.send(send, 1).ok()) {
+        if let Some(sent) = Self::get_port_unchecked(q, self.from, self.port_from()).and_then(|v| unsafe{&mut *v}.send(send, 1).ok()) {
             if sent > 0 { connection.pop_send(); }
         }
     }
 
-    pub fn try_recv(&self, connection: &mut Connection, q: &Query<&Ports>) {
+    pub unsafe fn try_unchecked_recv(&self, connection: &mut Connection, q: &Query<&Ports>) {
         if !connection.can_recieve() { return; }
-        let (resource, count) = try_unwrap_option!(unsafe { q.get_unchecked(self.from.0) }.ok().and_then(|v| unsafe { v.get_mut_unchecked(self.from.1) }.recv(1)));
+        let (resource, count) = try_unwrap_option!(Self::get_port_unchecked(q, self.to, self.port_to()).and_then(|v| unsafe{&mut *v}.recv(1)));
         if count > 0 { connection.try_insert(resource); }
+    }
+
+    pub fn try_send(&self, connection: &mut Connection, q: &mut Query<&mut Ports>) {
+        if !connection.can_send() { return; }
+        let send = connection.peek_send().unwrap();
+        if let Some(sent) = Self::get_port_mut(q, self.from, self.port_from()).and_then(|v| v.send(send, 1).ok()) {
+            if sent > 0 { connection.pop_send(); }
+        }
+    }
+
+    pub fn try_recv(&self, connection: &mut Connection, q: &mut Query<&mut Ports>) {
+        if !connection.can_recieve() { return; }
+        let (resource, count) = try_unwrap_option!(Self::get_port_mut(q, self.to, self.port_to()).and_then(|v| v.recv(1)));
+        if count > 0 { connection.try_insert(resource); }
+    }
+
+
+    pub fn port_from(&self) -> PortID {
+        unsafe{ PortID::from_repr_unchecked(self.ports & 0x03) }
+    }
+
+    pub fn port_to(&self) -> PortID {
+        unsafe{ PortID::from_repr_unchecked((self.ports >> 2) & 0x03) }
+    }
+
+    fn get_port_mut<'a>(q: &'a mut Query<&mut Ports>, entity: Entity, port: PortID) -> Option<&'a mut Port> {
+        q.get_mut(entity).ok().map(|v| v.into_inner().get_mut(port))
+    }
+
+    unsafe fn get_port_unchecked(q: &Query<&Ports>, entity: Entity, port: PortID) -> Option<*mut Port> {
+        q.get_unchecked(entity).map(|v| v.get_unchecked(port)).ok()
     }
 }
