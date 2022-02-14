@@ -55,6 +55,10 @@ impl<T: Default + Copy + Eq + Add<Output = T> + AddAssign<T> + SubAssign<T> + Or
         self.stored = Default::default();
     }
 
+    pub fn pop(&mut self, count: T) {
+        self.stored -= count;
+    }
+
     pub fn try_send(&mut self, resource: ResourceID, count: T) -> Result<T, ResourceID> {
         if self.is_empty_or_has(resource) {
             self.set(resource, self.stored + count);

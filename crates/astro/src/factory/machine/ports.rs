@@ -60,6 +60,18 @@ impl Port {
         self.store.try_send(resource, count.min(self.remaining()))
     }
 
+    pub fn can_send(&self, resource: ResourceID, count: PortCapacity) -> bool {
+        if self.store.is_empty_or_has(resource) {
+            self.remaining() > count
+        } else {
+            false
+        }
+    }
+
+    pub fn pop(&mut self) {
+        self.store.pop(1);
+    }
+
     pub fn remaining(&self) -> PortCapacity {
         u16::MAX - self.store.stored()
     }

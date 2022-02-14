@@ -10,6 +10,8 @@ pub use ports::*;
 mod connection;
 pub use connection::*;
 
+pub mod connection_fast;
+
 mod resource;
 pub use resource::*;
 
