@@ -84,6 +84,10 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::parallel());
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_updater);
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_updater);
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_port_check.label("check"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick").after("check"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("tick"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.after("send"));
     }
 }

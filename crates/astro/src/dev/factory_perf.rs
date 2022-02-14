@@ -4,7 +4,7 @@
 
 use std::{time::Instant, collections::VecDeque};
 
-use astro::factory::{ResourceID, Ports, FactoryStage, ConnectionDuration, Connection, ConnectionIO, ResourceType, FactoryPool, PortID};
+use astro::factory::{ResourceID, Ports, FactoryStage, ResourceType, FactoryPool, PortID, ConnectionDuration, ConnectionBundle, ConnectionSendPort, ConnectionRecvPort};
 use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage, Res};
 
 pub struct FactoryPerfTest;
@@ -92,8 +92,9 @@ pub fn setup_performance_test(mut commands: Commands) {
 
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
     commands.spawn()
-        .insert(Connection::new(length))
-        .insert(ConnectionIO::new(from, PortID::B, to, PortID::A));
+        .insert_bundle(ConnectionBundle::new(length))
+        .insert(ConnectionRecvPort(from, PortID::B))
+        .insert(ConnectionSendPort(  to, PortID::A));
 }
 
 #[derive(Bundle)]

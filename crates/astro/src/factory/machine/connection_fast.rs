@@ -2,6 +2,8 @@ use bevy::prelude::{Entity, Query, Component, Changed, Bundle, Added, Or};
 
 use super::{ResourceID, PortID, Ports};
 
+pub type ConnectionDuration= u16;
+
 #[derive(Component)]
 pub struct ConnectionPacketCounter(u16);
 
@@ -17,7 +19,7 @@ pub struct ConnectionRecvTail(u16);
 pub struct ConnectionRecvBody(Box<[Option<ResourceID>]>);
 
 #[derive(Component)]
-pub struct ConnectionRecvPort(Entity, PortID);
+pub struct ConnectionRecvPort(pub Entity, pub PortID);
 
 
 
@@ -31,7 +33,7 @@ pub struct ConnectionSendTail(u16);
 pub struct ConnectionSendBody(Box<[Option<ResourceID>]>);
 
 #[derive(Component)]
-pub struct ConnectionSendPort(Entity, PortID);
+pub struct ConnectionSendPort(pub Entity, pub PortID);
 
 #[derive(Bundle)]
 pub struct ConnectionBundle {
@@ -117,7 +119,7 @@ pub fn connection_tick(
     mut connections: Query<(
         &mut ConnectionSendTail, &mut ConnectionSendBody, 
         &mut ConnectionRecvHead, &ConnectionRecvBody
-    ), Changed<ConnectionRecvHead>>,
+    )>,
 ) {
     for (
         mut send_tail, mut send_body, 
@@ -135,7 +137,7 @@ pub fn connection_tick(
 }
 
 #[inline] fn wrap_inc(value: u16, max: u16) -> u16 {
-    if value >= max {
+    if value + 1 >= max {
         0
     } else {
         value + 1
