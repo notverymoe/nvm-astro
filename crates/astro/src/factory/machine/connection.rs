@@ -53,11 +53,6 @@ impl Connection {
     pub fn try_insert(&mut self, resource: ResourceID) -> bool {
 
         if self.can_recieve() {
-            if self.queue.len() > self.length as usize {
-                let mut a = Vec::new();
-                self.resolve(&mut a);
-                println!("{:?} {:?}", self.queue, a);
-            }
             self.queue.push_back(self.tail_distance);
             self.resource_ids.push_back(resource);
             self.tail_distance = 0;

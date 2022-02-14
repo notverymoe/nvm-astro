@@ -10,6 +10,8 @@ mod power;
 pub use power::*;
 use shrinkwraprs::Shrinkwrap;
 
+pub mod machine2;
+
 #[derive(Shrinkwrap)]
 pub struct FactoryPool(TaskPool);
 
