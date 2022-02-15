@@ -5,10 +5,11 @@ members=[
 ]
 
 [profile.release]
+debug = true
 lto = "fat"
 opt-level = 3
 
-[profile.dev."*"]
+[profile.dev]
 lto = "thin"
 opt-level = 1
 

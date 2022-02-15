@@ -13,7 +13,7 @@ use shrinkwraprs::Shrinkwrap;
 pub mod machine2;
 pub use machine2::*;
 
-use self::{connection_send, connection_recv, connection_tick};
+use self::{connection_send, connection_recv, connection_tick, connection_update};
 
 #[derive(Shrinkwrap)]
 pub struct FactoryPool(TaskPool);
@@ -89,9 +89,9 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_updater);
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv").after("tick"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv").after("tick"));
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
     }
 }

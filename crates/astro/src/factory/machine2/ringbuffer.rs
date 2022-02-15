@@ -2,6 +2,7 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
+#[derive(Debug)]
 pub struct RingBuffer<T> {
     data:     *mut T,
     head:     u16,
@@ -42,8 +43,8 @@ impl<T: Copy> RingBuffer<T> {
 
     pub fn push_back(&mut self, value: T) {
         debug_assert!(self.length < self.capacity);
-        self.tail = wrap_inc(self.tail, self.capacity);
         unsafe{ *self.data.offset(self.tail as isize) = value; } 
+        self.tail = wrap_inc(self.tail, self.capacity);
         self.length += 1;
     }
 
@@ -57,10 +58,9 @@ impl<T: Copy> RingBuffer<T> {
 
     pub fn pop_back(&mut self) -> T {
         debug_assert!(self.length > 0);
-        let old_tail = self.head as isize;
         self.tail = wrap_dec(self.tail, self.capacity);
         self.length -= 1;
-        unsafe { *self.data.offset(old_tail) }
+        unsafe { *self.data.offset(self.tail as isize) }
     }
 
     pub fn front(&self) -> &T {
@@ -72,11 +72,11 @@ impl<T: Copy> RingBuffer<T> {
     }
 
     pub fn back(&self) -> &T {
-        unsafe { &*self.data.offset(self.tail as isize) }
+        unsafe { &*self.data.offset(wrap_dec(self.tail, self.capacity) as isize) }
     }
 
     pub fn back_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.data.offset(self.tail as isize) }
+        unsafe { &mut *self.data.offset(wrap_dec(self.tail, self.capacity) as isize) }
     }
 
     pub fn len(&self) -> u16 {
@@ -105,7 +105,7 @@ impl<T: Copy> RingBuffer<T> {
 }
 
 fn wrap_inc(value: u16, max: u16) -> u16 {
-    if value + 1>= max {
+    if value + 1 >= max {
         0
     } else {
         value + 1

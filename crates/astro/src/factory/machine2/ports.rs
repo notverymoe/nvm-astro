@@ -7,7 +7,7 @@ use bevy::prelude::Component;
 use super::resource_store::ResourceStore;
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PortID {
     A = 0,
     B = 1,
