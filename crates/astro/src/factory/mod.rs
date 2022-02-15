@@ -2,15 +2,18 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-mod machine;
+//mod machine;
 use bevy::{prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion}, tasks::{TaskPool, TaskPoolBuilder}};
-pub use machine::*;
+//pub use machine::*;
 
 mod power;
 pub use power::*;
 use shrinkwraprs::Shrinkwrap;
 
 pub mod machine2;
+pub use machine2::*;
+
+use self::{connection_send, connection_recv, connection_tick};
 
 #[derive(Shrinkwrap)]
 pub struct FactoryPool(TaskPool);
@@ -86,6 +89,9 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_updater);
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_updater);
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv").after("tick"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
     }
 }

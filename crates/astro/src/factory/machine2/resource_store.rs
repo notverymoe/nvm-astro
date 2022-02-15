@@ -11,6 +11,12 @@ pub struct ResourceStore {
     count:    u16,
 }
 
+impl Default for ResourceStore {
+    fn default() -> Self {
+        Self { resource: MaybeUninit::uninit(), count: 0 }
+    }
+}
+
 impl ResourceStore {
 
     pub fn set(&mut self, resource: ResourceID, count: u16) {

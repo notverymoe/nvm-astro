@@ -93,7 +93,7 @@ pub fn connection_recv(
     }
 }
 
-pub fn connecton_tick(
+pub fn connection_tick(
     mut connections: Query<(&mut ConnectionHead, &mut ConnectionTail, &mut ConnectionBodyPosition)>,
 ) {
     for (mut head, mut tail, mut body_positions) in connections.iter_mut() {

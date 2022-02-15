@@ -4,7 +4,7 @@
 
 use std::{time::Instant, collections::VecDeque};
 
-use astro::factory::{ResourceID, Ports, FactoryStage, ResourceType, FactoryPool, PortID, ConnectionDuration, ConnectionIO, Connection};
+use astro::factory::{FactoryStage, FactoryPool, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend, ConnectionBundle};
 use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage, Res};
 
 pub struct FactoryPerfTest;
@@ -57,13 +57,11 @@ pub fn update_passthrough_machine(
 ) {
     q.par_for_each_mut(&pool, 1_000_000, |(mut port,)| {
     //for (mut port,) in q.iter_mut() {
-        if let Some((resource, count)) = port.get_mut(PortID::A).recv(1) {
-            if let Ok(took) = port.get_mut(PortID::B).send(resource, count) {
-                if took < count {
-                    port.get_mut(PortID::A).send(resource, count-took).unwrap();
-                }
-            } else {
-                port.get_mut(PortID::A).send(resource, count).unwrap();
+        if let Some((resource, _)) = port.get(PortID::A).get() {
+            let (resouce_recv, count_recv) = port.get(PortID::B).get().unwrap_or((resource, 0));
+            if resouce_recv == resource && count_recv != u16::MAX {
+                port.get_mut(PortID::B).set(resource, count_recv+1);
+                port.get_mut(PortID::A).set(resource, count_recv-1);
             }
         }
     });
@@ -75,8 +73,8 @@ pub fn update_unlimited_source(
 ) {
     q.par_for_each_mut(&pool, 1_000_000, |(UnlimitedSource(resource), mut port,)| {
     //for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
-        port.get_mut(PortID::B).send(*resource, 1).unwrap();
-        port.get_mut(PortID::A).recv(u16::MAX);
+        port.get_mut(PortID::B).set(*resource, 1);
+        port.get_mut(PortID::A).clear();
     });
 }
 
@@ -92,8 +90,9 @@ pub fn setup_performance_test(mut commands: Commands) {
 
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
     commands.spawn()
-        .insert(Connection::new(length))
-        .insert(ConnectionIO::new(from, PortID::B, to, PortID::A));
+        .insert_bundle(ConnectionBundle::new(length))
+        .insert(ConnectionPortRecv(from, PortID::B))
+        .insert(ConnectionPortSend(  to, PortID::A));
 }
 
 #[derive(Bundle)]

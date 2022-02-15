@@ -15,7 +15,7 @@ pub enum PortID {
     D = 3
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Ports([ResourceStore; 4]);
 
 impl Ports {
