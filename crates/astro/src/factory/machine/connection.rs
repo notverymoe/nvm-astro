@@ -2,165 +2,115 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use std::collections::VecDeque;
+use bevy::prelude::{Entity, Query, Component, Mut};
 
-use bevy::prelude::{Entity, Query, Component};
-
-use super::{ResourceID, Ports, Port, PortID};
-use nvm_bevyutil::try_unwrap_option;
+use super::{
+    resource::{ResourceIDInnerType, ResourceID}, 
+    ports::{PortID, Ports}, 
+    ringbuffer::RingBuffer
+};
 
 pub type ConnectionDuration = u16;
 
 #[derive(Component)]
 pub struct Connection {
-    length: ConnectionDuration,
-    queue: VecDeque<ConnectionDuration>,
-    resource_ids: VecDeque<ResourceID>,
-
-    head_idx: u16,
-    tail_distance: ConnectionDuration,
+    head: u16,
+    tail: u16,
+    body: RingBuffer<(ConnectionDuration, ResourceIDInnerType)>
 }
 
-impl Connection {
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub struct ConnectionPortRecv(pub Entity, pub PortID);
 
-    pub fn new(length: ConnectionDuration) -> Self {
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub struct ConnectionPortSend(pub Entity, pub PortID);
+
+
+impl Connection {
+    pub fn new(length: u16) -> Self {
         Self{
-            length,
-            queue:        VecDeque::with_capacity(length as usize),
-            resource_ids: VecDeque::with_capacity(length as usize),
-            head_idx: 0,
-            tail_distance: length,
+            head: 0,
+            tail: length,
+            body: RingBuffer::new(length),
         }
-    }
-
-    pub fn update(&mut self) {
-        if self.head_idx as usize >= self.queue.len() {
-            return;
-        }
-
-        self.queue[self.head_idx as usize] -= 1;
-        self.tail_distance += 1;
-        while self.can_advance_head() { self.head_idx += 1; }
-    }
-
-    fn can_advance_head(&mut self) -> bool {
-        let head = self.head_idx as usize;
-        if head >= self.queue.len() { return false; }
-        if self.queue[head] > 1 { return false; }
-        true
-    }
-
-    pub fn try_insert(&mut self, resource: ResourceID) -> bool {
-
-        if self.can_recieve() {
-            self.queue.push_back(self.tail_distance);
-            self.resource_ids.push_back(resource);
-            self.tail_distance = 0;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn resolve(&self, destination: &mut Vec<i32>) {
-        let mut counter: u16 = 0;
-        destination.extend(self.queue.iter().map(|v| { counter += v; self.length as i32 - counter as i32  }));
-    } 
-
-    pub fn can_recieve(&self) -> bool {
-        self.tail_distance != 0
     }
 }
 
-impl Connection {
-    pub fn pop_send(&mut self) {
-        if self.queue.is_empty() { return; }
-
-        self.head_idx = 0;
-        self.queue.pop_front();
-        self.resource_ids.pop_front();
-        if !self.queue.is_empty() { 
-            self.queue[0] += 1; 
-        } else {
-            self.tail_distance = self.length;
-        }
-    }
-
-    pub fn can_send(&self) -> bool {
-        let head = self.head_idx as usize;
-        head < self.queue.len() && (head != 0 || self.queue[0] == 0)
-    }
-
-    pub fn peek_send(&self) -> Option<ResourceID> {
-        self.resource_ids.get(0).copied()
+pub fn connection_update(
+    mut connections: Query<(&mut Connection, &ConnectionPortRecv, &ConnectionPortSend)>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_recv, port_send) in connections.iter_mut() {
+        do_connection_recv(&mut connection, port_recv, &mut ports);
+        do_connection_send(&mut connection, port_send, &mut ports);
+        do_connection_tick(&mut connection);
     }
 }
 
-
-#[derive(Component)]
-pub struct ConnectionIO {
-    from: Entity, 
-    to:   Entity,
-    ports: u8,
+pub fn connection_recv(
+    mut connections: Query<(&mut Connection, &ConnectionPortRecv)>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_recv) in connections.iter_mut() {
+        do_connection_recv(&mut connection, port_recv, &mut ports)
+    }
 }
 
-impl ConnectionIO {
-
-    pub fn new(
-        from: Entity, 
-        from_port: PortID, 
-        to: Entity, 
-        to_port: PortID,
-    ) -> Self {
-        assert!(from != to || from_port != to_port, "Machine cannot connect to the same slot on itself");
-
-        let from_port = from_port as u8;
-        let   to_port =   to_port as u8;
-        Self{from, to, ports: from_port | (to_port << 2)}
+pub fn connection_tick(
+    mut connections: Query<&mut Connection>,
+) {
+    for mut connection in connections.iter_mut() {
+        do_connection_tick(&mut connection);
     }
+}
 
-    pub unsafe fn try_unchecked_send(&self, connection: &mut Connection, q: &Query<&Ports>) {
-        if !connection.can_send() { return; }
-        let send = connection.peek_send().unwrap();
-        if let Some(sent) = Self::get_port_unchecked(q, self.from, self.port_from()).and_then(|v| unsafe{&mut *v}.send(send, 1).ok()) {
-            if sent > 0 { connection.pop_send(); }
+pub fn connection_send(
+    mut connections: Query<(&mut Connection, &ConnectionPortSend)>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_send) in connections.iter_mut() {
+        do_connection_send(&mut connection, port_send, &mut ports);
+    }
+}
+
+#[inline(always)] pub fn do_connection_recv(
+    connection: &mut Mut<Connection>,
+    port_recv: &ConnectionPortRecv,
+    ports: &mut Query<&mut Ports>
+) {
+    if connection.tail == 0 { return; }
+    if let Ok(mut ports) = ports.get_mut(port_recv.0) {
+        if let Some((resource, count)) = ports.get(port_recv.1).get() {
+            let tail = core::mem::replace(&mut connection.tail, 0);
+            connection.body.push_back((tail, resource.into_inner()));
+            ports.get_mut(port_recv.1).set(resource, count - 1);
         }
     }
+}
 
-    pub unsafe fn try_unchecked_recv(&self, connection: &mut Connection, q: &Query<&Ports>) {
-        if !connection.can_recieve() { return; }
-        let (resource, count) = try_unwrap_option!(Self::get_port_unchecked(q, self.to, self.port_to()).and_then(|v| unsafe{&mut *v}.recv(1)));
-        if count > 0 { connection.try_insert(resource); }
-    }
+#[inline(always)] pub fn do_connection_tick(
+    connection: &mut Mut<Connection>
+) {
+    if connection.head >= connection.body.len() { return; }
+    connection.tail += 1;
+    let head = connection.head;
+    connection.body.get_mut(head).0 -= 1;
+    if connection.body.get(head).0 <= 1 { connection.head += 1; }
+}
 
-    pub fn try_send(&self, connection: &mut Connection, q: &mut Query<&mut Ports>) {
-        if !connection.can_send() { return; }
-        let send = connection.peek_send().unwrap();
-        if let Some(sent) = Self::get_port_mut(q, self.from, self.port_from()).and_then(|v| v.send(send, 1).ok()) {
-            if sent > 0 { connection.pop_send(); }
-        }
-    }
+#[inline(always)] fn do_connection_send(
+    connection: &mut Mut<Connection>,
+    port_send: &ConnectionPortSend,
+    ports: &mut Query<&mut Ports>,
+) {
+    if connection.head == 0 { return; }
+    if let Ok(mut ports) = ports.get_mut(port_send.0) {
+        let resouce_send = unsafe{ ResourceID::from_inner_unchecked(connection.body.front().0) };
+        let (resource_send, count) = ports.get(port_send.1).get_or(resouce_send);
+        if resource_send != resouce_send { return; }
+        ports.get_mut(port_send.1).set(resource_send, count + 1);
 
-    pub fn try_recv(&self, connection: &mut Connection, q: &mut Query<&mut Ports>) {
-        if !connection.can_recieve() { return; }
-        let (resource, count) = try_unwrap_option!(Self::get_port_mut(q, self.to, self.port_to()).and_then(|v| v.recv(1)));
-        if count > 0 { connection.try_insert(resource); }
-    }
-
-
-    pub fn port_from(&self) -> PortID {
-        unsafe{ PortID::from_repr_unchecked(self.ports & 0x03) }
-    }
-
-    pub fn port_to(&self) -> PortID {
-        unsafe{ PortID::from_repr_unchecked((self.ports >> 2) & 0x03) }
-    }
-
-    fn get_port_mut<'a>(q: &'a mut Query<&mut Ports>, entity: Entity, port: PortID) -> Option<&'a mut Port> {
-        q.get_mut(entity).ok().map(|v| v.into_inner().get_mut(port))
-    }
-
-    unsafe fn get_port_unchecked(q: &Query<&Ports>, entity: Entity, port: PortID) -> Option<*mut Port> {
-        q.get_unchecked(entity).map(|v| v.get_unchecked(port)).ok()
+        connection.head = 0;
+        connection.body.pop_front();
     }
 }

@@ -10,10 +10,10 @@ mod power;
 pub use power::*;
 use shrinkwraprs::Shrinkwrap;
 
-pub mod machine2;
-pub use machine2::*;
+pub mod machine;
+pub use machine::*;
 
-use self::{connection_send, connection_recv, connection_tick, connection_update};
+use self::{connection_send, connection_recv, connection_tick};
 
 #[derive(Shrinkwrap)]
 pub struct FactoryPool(TaskPool);

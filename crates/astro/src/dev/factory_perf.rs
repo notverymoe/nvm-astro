@@ -4,8 +4,8 @@
 
 use std::{time::Instant, collections::VecDeque};
 
-use astro::factory::{FactoryStage, FactoryPool, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend, Connection};
-use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage, Res};
+use astro::factory::{FactoryStage, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, Connection, ConnectionPortRecv, ConnectionPortSend};
+use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage};
 
 pub struct FactoryPerfTest;
 
@@ -52,10 +52,8 @@ pub fn performance_monitor(mut inst: Local<VecDeque<u128>>, mut counter: Local<u
 }
 
 pub fn update_passthrough_machine(
-    pool: Res<FactoryPool>, 
     mut q: Query<(&mut Ports,), With<PassthroughMachine>>
 ) {
-    //q.par_for_each_mut(&pool, 1_000_000, |(mut port,)| {
     for (mut port,) in q.iter_mut() {
         if let Some((resource, count_send)) = port.get(PortID::A).get() {
             let (resouce_recv, count_recv) = port.get(PortID::B).get().unwrap_or((resource, 0));
@@ -64,18 +62,16 @@ pub fn update_passthrough_machine(
                 port.get_mut(PortID::B).set(resource, count_recv+1);
             }
         }
-    }//);
+    }
 }
 
 pub fn update_unlimited_source(
-    pool: Res<FactoryPool>, 
     mut q: Query<(&UnlimitedSource, &mut Ports,)>
 ) {
-    //q.par_for_each_mut(&pool, 1_000_000, |(UnlimitedSource(resource), mut port,)| {
     for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
         port.get_mut(PortID::B).set(*resource, 1);
         port.get_mut(PortID::A).clear();
-    }//);
+    }
 }
 
 pub fn setup_performance_test(mut commands: Commands) {
@@ -86,12 +82,6 @@ pub fn setup_performance_test(mut commands: Commands) {
         add_connection(&mut commands,         src, passthrough, 10);
         add_connection(&mut commands, passthrough,         dst, 10);
     }
-    // for _ in 0..PERF_TEST_SIZE {
-    //     let src = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
-    //     let dst = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
-    //     //let passthrough = commands.spawn().insert_bundle(PassthroughMachineBundle::default()).id();
-    //     add_connection(&mut commands, src, dst, 10);
-    // }
 }
 
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
