@@ -2,112 +2,117 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use std::collections::VecDeque;
+use bevy::prelude::{Entity, Query, Component, Mut, Without, Or};
 
-use bevy::prelude::{Entity, Query, Component};
-use nvm_bevyutil::{sync::SyncMutRef, try_unwrap_option};
+use super::{
+    resource::{ResourceIDInnerType, ResourceID}, 
+    ports::{PortID, Ports}, 
+    ringbuffer::RingBuffer
+};
 
-use super::{PortKey, ResourceID, Ports, Port, PortCapacity};
+pub type ConnectionDuration = u16;
 
+pub type ConnectionWithoutBothPorts = Or<(Without<ConnectionPortSend>, Without<ConnectionPortRecv>)>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ConnectionPacket {
-    pub time:     u32,
-    pub resource: ResourceID,
-    pub stored:   PortCapacity,
-}
-
-#[derive(Component, Debug)]
+#[derive(Component)]
 pub struct Connection {
-    from: (Entity, PortKey),
-    to:   (Entity, PortKey),
-
-    transfer_count: PortCapacity,
-    transfer_time:  u32,
-    packets: VecDeque<ConnectionPacket>,
+    head: u16,
+    tail: u16,
+    body: RingBuffer<(ConnectionDuration, ResourceIDInnerType)>
 }
 
-impl Connection {
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub struct ConnectionPortRecv(pub Entity, pub PortID);
 
-    pub fn new(
-        transfer_count: PortCapacity, 
-        transfer_time: u32, 
-        from: (Entity, PortKey), 
-        to: (Entity, PortKey)
-    ) -> Self {
-        assert!(from.0 != to.0 || from.1 != to.1, "Machine cannot connect to the same slot on itself");
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub struct ConnectionPortSend(pub Entity, pub PortID);
+
+
+impl Connection {
+    pub fn new(length: u16) -> Self {
         Self{
-            from,
-            to,
-            transfer_count,
-            transfer_time,
-            packets: VecDeque::with_capacity((transfer_time as usize)+1), // Should never re-allocate
+            head: 0,
+            tail: length,
+            body: RingBuffer::new(length),
         }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &ConnectionPacket> {
-        self.packets.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.packets.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.packets.is_empty()
-    }
-
-    pub fn can_recieve(&self) -> bool {
-        self.packets.is_empty() || self.packets[self.packets.len()-1].time != 0
     }
 }
 
-
-impl Connection {
-    pub fn tick(&mut self) {
-        let mut tick_lim = self.transfer_time;
-        for packet in self.packets.iter_mut() {
-            if packet.time + 1 < tick_lim { packet.time += 1; }
-            tick_lim = packet.time;
-        }
-    }
-
-    pub fn try_send(&mut self, q: &Query<&Ports>) {
-        let last = try_unwrap_option!(self.get_send_packet());
-        let took = try_unwrap_option!(self.lookup_to(q).and_then(|mut v| v.send(last.resource, last.stored).ok()));
-        if last.stored <= took { self.pop(); }
-    }
-
-    pub fn try_recv(&mut self, q: &Query<&Ports>) {
-        if !self.can_recieve() { return; }
-        let (kind, stored) = try_unwrap_option!(self.lookup_from(q).and_then(|mut v| v.recv(self.transfer_count)));
-        self.push(ConnectionPacket{resource: kind, stored, time: 0});
-    }
-
-    fn lookup_from<'a>(&self, q: &'a Query<&Ports>) -> Option<SyncMutRef<'a, Port>> {
-        q.get(self.from.0).ok().and_then(|v| v.get(self.from.1))
-    }
-
-    fn lookup_to<'a>(&self, q: &'a Query<&Ports>) -> Option<SyncMutRef<'a, Port>> {
-        q.get(self.to.0).ok().and_then(|v| v.get(self.to.1))
+pub fn connection_update(
+    mut connections: Query<(&mut Connection, &ConnectionPortRecv, &ConnectionPortSend)>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_recv, port_send) in connections.iter_mut() {
+        do_connection_recv(&mut connection, port_recv, &mut ports);
+        do_connection_send(&mut connection, port_send, &mut ports);
+        do_connection_tick(&mut connection);
     }
 }
 
-
-impl Connection {
-
-    fn push(&mut self, packet: ConnectionPacket) {
-        self.packets.push_back(packet);
+pub fn connection_recv(
+    mut connections: Query<(&mut Connection, &ConnectionPortRecv), Without<ConnectionPortSend>>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_recv) in connections.iter_mut() {
+        do_connection_recv(&mut connection, port_recv, &mut ports)
     }
+}
 
-    fn pop(&mut self) {
-        self.packets.pop_front();
+pub fn connection_tick(
+    mut connections: Query<&mut Connection, ConnectionWithoutBothPorts>,
+) {
+    for mut connection in connections.iter_mut() {
+        do_connection_tick(&mut connection);
     }
+}
 
-    fn get_send_packet(&self) -> Option<ConnectionPacket> {
-        match !self.packets.is_empty() && (self.packets[0].time + 1 >= self.transfer_time) {
-            true  => Some(self.packets[0]),
-            false => None,
+pub fn connection_send(
+    mut connections: Query<(&mut Connection, &ConnectionPortSend), Without<ConnectionPortRecv>>,
+    mut ports:       Query<&mut Ports>,
+) {
+    for (mut connection, port_send) in connections.iter_mut() {
+        do_connection_send(&mut connection, port_send, &mut ports);
+    }
+}
+
+#[inline(always)] pub fn do_connection_recv(
+    connection: &mut Mut<Connection>,
+    port_recv: &ConnectionPortRecv,
+    ports: &mut Query<&mut Ports>
+) {
+    if connection.tail == 0 { return; }
+    if let Ok(mut ports) = ports.get_mut(port_recv.0) {
+        if let Some((resource, count)) = ports.get(port_recv.1).get() {
+            let tail = core::mem::replace(&mut connection.tail, 0);
+            connection.body.push_back((tail, resource.into_inner()));
+            ports.get_mut(port_recv.1).set(resource, count - 1);
         }
+    }
+}
+
+#[inline(always)] pub fn do_connection_tick(
+    connection: &mut Mut<Connection>
+) {
+    if connection.head >= connection.body.len() { return; }
+    connection.tail += 1;
+    let head = connection.head;
+    connection.body.get_mut(head).0 -= 1;
+    if connection.body.get(head).0 <= 1 { connection.head += 1; }
+}
+
+#[inline(always)] fn do_connection_send(
+    connection: &mut Mut<Connection>,
+    port_send: &ConnectionPortSend,
+    ports: &mut Query<&mut Ports>,
+) {
+    if connection.head == 0 { return; }
+    if let Ok(mut ports) = ports.get_mut(port_send.0) {
+        let resouce_send = unsafe{ ResourceID::from_inner_unchecked(connection.body.front().0) };
+        let (resource_send, count) = ports.get(port_send.1).get_or(resouce_send);
+        if resource_send != resouce_send { return; }
+        ports.get_mut(port_send.1).set(resource_send, count + 1);
+
+        connection.head = 0;
+        connection.body.pop_front();
     }
 }

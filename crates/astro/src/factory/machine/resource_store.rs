@@ -2,90 +2,44 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use std::{ops::{Add, SubAssign, AddAssign}, mem::MaybeUninit};
+use std::mem::MaybeUninit;
 
-use super::ResourceID;
+use super::resource::ResourceID;
 
-/// Utility class for managing a stored resource, focused on removing the
-/// the performance/logic burden of managing an Option<ResourceID> - nessesitated
-/// by the type not having an "empty" state - when you're also counting the stored
-/// amount.
-#[derive(Clone, Copy, Debug)]
-pub struct ResourceStore<T> {
+pub struct ResourceStore {
     resource: MaybeUninit<ResourceID>,
-    stored:   T,
+    count:    u16,
 }
 
-impl<T: Default> Default for ResourceStore<T> {
+impl Default for ResourceStore {
     fn default() -> Self {
-        Self {
-            resource: MaybeUninit::uninit(),
-            stored: Default::default()
-        }
+        Self { resource: MaybeUninit::uninit(), count: 0 }
     }
 }
 
-impl<T: Default + Copy + Eq + Add<Output = T> + AddAssign<T> + SubAssign<T> + Ord> ResourceStore<T> {
+impl ResourceStore {
 
-    pub fn new(resource: ResourceID, stored: T) -> Self {
-        Self{
-            resource: MaybeUninit::new(resource), 
-            stored
-        }
-    }
-
-    pub fn resource(&self) -> Option<ResourceID> {
-        if self.is_empty() {
-            None
-        } else {
-            Some(unsafe{ self.resource.assume_init() })
-        }
-    }
-
-    pub fn stored(&self) -> T {
-        self.stored
-    }
-
-    pub fn set(&mut self, resource: ResourceID, count: T) {
+    pub fn set(&mut self, resource: ResourceID, count: u16) {
         self.resource = MaybeUninit::new(resource);
-        self.stored   = count;
+        self.count    = count;
     }
 
+    pub fn get(&self) -> Option<(ResourceID, u16)> {
+        match self.count {
+            0 => None,
+            _ => Some((unsafe{ self.resource.assume_init() }, self.count))
+        }
+    }
+
+    pub fn get_or(&self, resource: ResourceID) -> (ResourceID, u16) {
+        match self.count {
+            0 => (resource, 0),
+            _ => (unsafe{ self.resource.assume_init() }, self.count),
+        }
+    }
+    
     pub fn clear(&mut self) {
-        self.stored = Default::default();
+        self.count = 0;
     }
 
-    pub fn try_send(&mut self, resource: ResourceID, count: T) -> Result<T, ResourceID> {
-        if self.is_empty_or_has(resource) {
-            self.set(resource, self.stored + count);
-            Ok(count)
-        } else {
-            Err(unsafe { self.resource.assume_init() })
-        }
-    }
-
-    pub fn try_recv(&mut self, count: T) -> Option<(ResourceID, T)> {
-        if let Some(resource) = self.resource() {
-            Some((resource, count.min(self.stored)))
-        } else {
-            None
-        }
-    }
-
-    pub fn try_add(&mut self, count: T) -> bool {
-        if self.is_empty() {
-            false
-        } else {
-            self.stored += count;
-            true
-        }
-    }
-
-    pub fn is_empty_or_has(&self, resource: ResourceID) -> bool {
-        self.resource().map_or(true, |v| v == resource)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.stored == T::default()
-    }
 }

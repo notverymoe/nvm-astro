@@ -11,6 +11,23 @@ use once_cell::sync::OnceCell;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ResourceID(NonZeroU16);
 
+pub type ResourceIDInnerType = u16;
+
+impl ResourceID {
+
+    pub fn into_inner(&self) -> ResourceIDInnerType {
+        self.0.into()
+    }
+
+    pub fn try_from_inner(value: ResourceIDInnerType) -> Option<Self> {
+        Some(Self(NonZeroU16::new(value)?))
+    }
+
+    pub unsafe fn from_inner_unchecked(value: ResourceIDInnerType) -> Self {
+        Self(NonZeroU16::new_unchecked(value))
+    }
+}
+
 newtype_compactstr!(pub, ResourceUUID, CompactStr128);
 
 pub struct ResourceType {
