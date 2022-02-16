@@ -30,6 +30,13 @@ impl ResourceStore {
             _ => Some((unsafe{ self.resource.assume_init() }, self.count))
         }
     }
+
+    pub fn get_or(&self, resource: ResourceID) -> (ResourceID, u16) {
+        match self.count {
+            0 => (resource, 0),
+            _ => (unsafe{ self.resource.assume_init() }, self.count),
+        }
+    }
     
     pub fn clear(&mut self) {
         self.count = 0;

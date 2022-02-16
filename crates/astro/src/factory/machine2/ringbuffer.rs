@@ -93,15 +93,24 @@ impl<T: Copy> RingBuffer<T> {
 
     pub fn get(&self, index: u16) -> &T {
         debug_assert!(index < self.length);
-        let index = (self.head + index) % self.capacity;
+        let index = wrap_fast(self.head, index, self.capacity);
         unsafe { &mut *self.data.offset(index as isize) }
     }
 
     pub fn get_mut(&mut self, index: u16) -> &mut T {
         debug_assert!(index < self.length);
-        let index = (self.head + index) % self.capacity;
+        let index = wrap_fast(self.head, index, self.capacity);
         unsafe { &mut *self.data.offset(index as isize) }
     }
+}
+
+fn wrap_fast(value: u16, distance: u16, max: u16) -> isize {
+    let max_dist = max - value;
+    (if max_dist < distance {
+        distance - max_dist
+    } else {
+        value + distance
+    }) as isize
 }
 
 fn wrap_inc(value: u16, max: u16) -> u16 {

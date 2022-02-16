@@ -4,7 +4,7 @@
 
 use std::{time::Instant, collections::VecDeque};
 
-use astro::factory::{FactoryStage, FactoryPool, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend, ConnectionBundle};
+use astro::factory::{FactoryStage, FactoryPool, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend, Connection};
 use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage, Res};
 
 pub struct FactoryPerfTest;
@@ -26,7 +26,7 @@ pub struct UnlimitedSource(ResourceID);
 #[derive(Component, Default)]
 pub struct PassthroughMachine;
 
-const PERF_TEST_SIZE:     usize = 5_000_000;
+const PERF_TEST_SIZE:     usize = 1_000_000;
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = 10;
 
@@ -96,7 +96,7 @@ pub fn setup_performance_test(mut commands: Commands) {
 
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
     commands.spawn()
-        .insert_bundle(ConnectionBundle::new(length))
+        .insert(Connection::new(length))
         .insert(ConnectionPortRecv(from, PortID::B))
         .insert(ConnectionPortSend(  to, PortID::A));
 }
