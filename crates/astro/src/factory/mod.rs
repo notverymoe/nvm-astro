@@ -2,21 +2,15 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-//mod machine;
-use bevy::{prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion}, tasks::{TaskPool, TaskPoolBuilder}};
-//pub use machine::*;
+use bevy::prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion};
 
 mod power;
 pub use power::*;
-use shrinkwraprs::Shrinkwrap;
 
-pub mod machine;
+mod machine;
 pub use machine::*;
 
 use self::{connection_send, connection_recv, connection_tick};
-
-#[derive(Shrinkwrap)]
-pub struct FactoryPool(TaskPool);
 
 #[derive(StageLabel, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FactoryStage {
@@ -56,9 +50,6 @@ impl Plugin for FactoryStagePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(  CoreStage::Update,   FactoryStage::Power, SystemStage::single_threaded());
         app.schedule.add_stage_after(FactoryStage::Power, FactoryStage::Machine, SystemStage::single_threaded());
-
-        let threads = 4;
-        app.insert_resource(FactoryPool(TaskPoolBuilder::new().num_threads(threads).build()));
     }
 }
 
@@ -89,7 +80,7 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv").after("tick"));
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));

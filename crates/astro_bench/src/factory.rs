@@ -2,19 +2,29 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use std::{time::Instant, collections::VecDeque};
+use std::time::Instant;
+use bevy::{prelude::*, MinimalPlugins, app::{Events, AppExit}};
 
-use astro::factory::{FactoryStage, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, Connection, ConnectionPortRecv, ConnectionPortSend};
-use bevy::prelude::{Query, With, Component, Plugin, Commands, Entity, Bundle, Local, CoreStage};
+use astro::factory::{FactoryPlugins, FactoryStage, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, Connection, ConnectionPortRecv, ConnectionPortSend};
+
+pub fn factory_bench() {
+    App::new()
+        .add_plugins(MinimalPlugins)
+        .add_plugins(FactoryPlugins)
+        .add_plugin(FactoryPerfTest)
+        .run();
+}
 
 pub struct FactoryPerfTest;
 
 impl Plugin for FactoryPerfTest {
     fn build(&self, app: &mut bevy::prelude::App) {
         app
+            .insert_resource(StartTime(None))
+            .add_system_to_stage(     CoreStage::First, start_timer               )
             .add_system_to_stage(FactoryStage::Machine, update_passthrough_machine)
             .add_system_to_stage(FactoryStage::Machine, update_unlimited_source   )
-            .add_system_to_stage(      CoreStage::Last, performance_monitor       )
+            .add_system_to_stage(      CoreStage::Last, auto_exit                 )
             .add_startup_system(setup_performance_test);
     }
 }
@@ -26,29 +36,29 @@ pub struct UnlimitedSource(ResourceID);
 #[derive(Component, Default)]
 pub struct PassthroughMachine;
 
-const PERF_TEST_SIZE:     usize = 1_000_000;
+const PERF_TEST_SIZE:     usize = 6_000_000;
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
-const PERF_SAMPLES:       usize = 10;
+const PERF_SAMPLES:       usize = 100;
 
-pub fn performance_monitor(mut inst: Local<VecDeque<u128>>, mut counter: Local<usize>, mut last: Local<Option<Instant>>) {
-    if last.is_none() {
-        println!("Started.");
-        *last = Some(std::time::Instant::now());
-    }
+pub struct StartTime(Option<Instant>);
 
+pub fn start_timer(
+    mut start: ResMut<StartTime>,
+) {
+    if start.0.is_none() { start.0 = Some(std::time::Instant::now()); }
+}
+
+pub fn auto_exit(
+    mut app_exit_events: ResMut<Events<AppExit>>,
+    start: Res<StartTime>,
+    mut counter: Local<usize>, 
+) {
     *counter += 1;
-    if *counter >= PERF_SAMPLES {
-        let now  = std::time::Instant::now();
-        inst.push_front((now - last.unwrap()).as_nanos());
-        inst.truncate(10);
-        *last = Some(now);
-
-        let average: u128 = inst.iter().sum::<u128>()/((*counter * inst.len() * PERF_TEST_MACHINES) as u128);
-        println!("{}ns per op", average);
-        *counter = 0;
-    }
-    
-    
+    if *counter < PERF_SAMPLES { return; }
+    let run_time = (std::time::Instant::now() - start.0.unwrap()).as_nanos();
+    let average: u128 = run_time/((PERF_SAMPLES * PERF_TEST_MACHINES) as u128);
+    println!("{}ns per op", average);
+    app_exit_events.send(AppExit);
 }
 
 pub fn update_passthrough_machine(

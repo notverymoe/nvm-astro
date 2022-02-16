@@ -2,7 +2,7 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use bevy::prelude::{Entity, Query, Component, Mut};
+use bevy::prelude::{Entity, Query, Component, Mut, Without, Or};
 
 use super::{
     resource::{ResourceIDInnerType, ResourceID}, 
@@ -11,6 +11,8 @@ use super::{
 };
 
 pub type ConnectionDuration = u16;
+
+pub type ConnectionWithoutBothPorts = Or<(Without<ConnectionPortSend>, Without<ConnectionPortRecv>)>;
 
 #[derive(Component)]
 pub struct Connection {
@@ -48,7 +50,7 @@ pub fn connection_update(
 }
 
 pub fn connection_recv(
-    mut connections: Query<(&mut Connection, &ConnectionPortRecv)>,
+    mut connections: Query<(&mut Connection, &ConnectionPortRecv), Without<ConnectionPortSend>>,
     mut ports:       Query<&mut Ports>,
 ) {
     for (mut connection, port_recv) in connections.iter_mut() {
@@ -57,7 +59,7 @@ pub fn connection_recv(
 }
 
 pub fn connection_tick(
-    mut connections: Query<&mut Connection>,
+    mut connections: Query<&mut Connection, ConnectionWithoutBothPorts>,
 ) {
     for mut connection in connections.iter_mut() {
         do_connection_tick(&mut connection);
@@ -65,7 +67,7 @@ pub fn connection_tick(
 }
 
 pub fn connection_send(
-    mut connections: Query<(&mut Connection, &ConnectionPortSend)>,
+    mut connections: Query<(&mut Connection, &ConnectionPortSend), Without<ConnectionPortRecv>>,
     mut ports:       Query<&mut Ports>,
 ) {
     for (mut connection, port_send) in connections.iter_mut() {

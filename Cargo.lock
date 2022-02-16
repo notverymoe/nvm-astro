@@ -137,6 +137,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "astro_bench"
+version = "0.1.0"
+dependencies = [
+ "astro",
+ "bevy",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
