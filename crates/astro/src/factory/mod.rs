@@ -2,18 +2,13 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-use bevy::prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion};
+use bevy::prelude::{ResMut, PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, ParallelSystemDescriptorCoercion};
 
 mod power;
 pub use power::*;
 
-pub mod machine;
-//pub use machine::*;
-
-pub mod machine2;
-pub use machine2::*;
-
-use self::{connection_send, connection_recv};
+mod machine;
+pub use machine::*;
 
 #[derive(StageLabel, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FactoryStage {
@@ -46,6 +41,12 @@ pub enum FactoryStageInternal {
 // //////////////////// //
 // // Factory Stages // //
 // //////////////////// //
+
+pub struct FactoryTick(pub u32);
+
+pub fn update_tick(mut tick: ResMut<FactoryTick>) {
+    tick.0 += 1;
+}
 
 pub struct FactoryStagePlugin;
 
@@ -85,8 +86,7 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
-        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send_recv);
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv"));
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
     }
