@@ -87,6 +87,10 @@ impl<T: Copy> RingBuffer<T> {
         self.length == 0
     }
 
+    pub fn is_full(&self) -> bool {
+        self.length >= self.capacity
+    }
+
     pub fn capacity(&self) -> u16 {
         self.capacity
     }

@@ -7,10 +7,13 @@ use bevy::prelude::{PluginGroup, Plugin, CoreStage, SystemStage, StageLabel, Par
 mod power;
 pub use power::*;
 
-mod machine;
-pub use machine::*;
+pub mod machine;
+//pub use machine::*;
 
-use self::{connection_send, connection_recv, connection_tick};
+pub mod machine2;
+pub use machine2::*;
+
+use self::{connection_send, connection_recv};
 
 #[derive(StageLabel, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FactoryStage {
@@ -48,6 +51,8 @@ pub struct FactoryStagePlugin;
 
 impl Plugin for FactoryStagePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.insert_resource(FactoryTick(0));
+        app.schedule.add_system_to_stage(CoreStage::First, update_tick);
         app.schedule.add_stage_after(  CoreStage::Update,   FactoryStage::Power, SystemStage::single_threaded());
         app.schedule.add_stage_after(FactoryStage::Power, FactoryStage::Machine, SystemStage::single_threaded());
     }
@@ -80,9 +85,9 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv").after("tick"));
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_update);
+        //app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_tick.label("tick"));
+        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv"));
         app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
     }
 }

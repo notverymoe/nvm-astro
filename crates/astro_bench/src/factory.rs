@@ -5,7 +5,7 @@
 use std::time::Instant;
 use bevy::{prelude::*, MinimalPlugins, app::{Events, AppExit}};
 
-use astro::factory::{FactoryPlugins, FactoryStage, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, Connection, ConnectionPortRecv, ConnectionPortSend};
+use astro::factory::{FactoryPlugins, FactoryStage, Connection, machine::{ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend}};
 
 pub fn factory_bench() {
     App::new()
