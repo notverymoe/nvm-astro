@@ -3,11 +3,9 @@
 \*=====================================================================*/
 
 use bevy::prelude::{Query, Component, Res};
-use shrinkwraprs::Shrinkwrap;
 
 use crate::factory::machine::{ResourceID, RingBuffer, Ports, ConnectionPortRecv, ConnectionPortSend, ResourceIDInnerType};
 
-#[derive(Shrinkwrap)]
 pub struct FactoryTick(pub u32);
 
 #[derive(Default, Clone, Copy)]
@@ -54,7 +52,7 @@ pub fn connection_recv(
         if let Ok(mut ports) = ports.get_mut(ports_recv.0) {
             if let Some((resource, count)) = ports.get(ports_recv.1).get() {
                 ports.get_mut(ports_recv.1).set(resource, count-1);
-                connection.insert(**tick, resource);
+                connection.insert(tick.0, resource);
             }
         }
     }
@@ -66,10 +64,7 @@ pub fn connection_send(
     mut ports: Query<&mut Ports>
 ) {
     for (mut connection, ports_send) in connections.iter_mut() {
-        if connection.can_consume(**tick) { 
-            continue; 
-        }
-
+        if !connection.can_consume(tick.0) {  continue; }
         if let Ok(mut ports) = ports.get_mut(ports_send.0) {
             let (resource, count) =  ports.get(ports_send.1).get_or(connection.peek().1);
             if resource != connection.peek().1 { continue; }

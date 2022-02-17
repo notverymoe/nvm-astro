@@ -36,7 +36,7 @@ pub struct UnlimitedSource(ResourceID);
 #[derive(Component, Default)]
 pub struct PassthroughMachine;
 
-const PERF_TEST_SIZE:     usize = 6_000_000;
+const PERF_TEST_SIZE:     usize = 9_000_000;
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = 100;
 
