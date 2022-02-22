@@ -5,6 +5,12 @@
 mod connection;
 pub use connection::*;
 
+mod connection_long;
+pub use connection_long::*;
+
+mod connection_short;
+pub use connection_short::*;
+
 mod ports;
 pub use ports::*;
 

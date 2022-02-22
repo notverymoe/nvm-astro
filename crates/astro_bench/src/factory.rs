@@ -5,7 +5,7 @@
 use std::time::Instant;
 use bevy::{prelude::*, MinimalPlugins, app::{Events, AppExit}};
 
-use astro::factory::{FactoryPlugins, FactoryStage, Connection, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionPortRecv, ConnectionPortSend}; 
+use astro::factory::{FactoryPlugins, FactoryStage, spawn_connection, ResourceID, PortID, Ports, ResourceType, ConnectionDuration}; 
 
 pub fn factory_bench() {
     App::new()
@@ -36,7 +36,7 @@ pub struct UnlimitedSource(ResourceID);
 #[derive(Component, Default)]
 pub struct PassthroughMachine;
 
-const PERF_TEST_SIZE:     usize = 9_000_000;
+const PERF_TEST_SIZE:     usize = 4_000_000;
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = 100;
 
@@ -95,10 +95,8 @@ pub fn setup_performance_test(mut commands: Commands) {
 }
 
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) {
-    commands.spawn()
-        .insert(Connection::new(length))
-        .insert(ConnectionPortRecv(from, PortID::B))
-        .insert(ConnectionPortSend(  to, PortID::A));
+    let mut entity = commands.spawn();
+    spawn_connection(&mut entity, length, Some((to, PortID::A)), Some((from, PortID::B)));
 }
 
 #[derive(Bundle)]

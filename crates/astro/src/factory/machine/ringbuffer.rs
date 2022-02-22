@@ -108,7 +108,7 @@ impl<T: Copy> RingBuffer<T> {
     }
 }
 
-fn wrap_fast(value: u16, distance: u16, max: u16) -> isize {
+#[inline] fn wrap_fast(value: u16, distance: u16, max: u16) -> isize {
     let max_dist = max - value;
     (if max_dist < distance {
         distance - max_dist
@@ -117,15 +117,16 @@ fn wrap_fast(value: u16, distance: u16, max: u16) -> isize {
     }) as isize
 }
 
-fn wrap_inc(value: u16, max: u16) -> u16 {
-    if value + 1 >= max {
+#[inline] fn wrap_inc(value: u16, max: u16) -> u16 {
+    (value + 1) % max
+    /*if value + 1 >= max {
         0
     } else {
         value + 1
-    }
+    }*/
 }
 
-fn wrap_dec(value: u16, max: u16) -> u16 {
+#[inline] fn wrap_dec(value: u16, max: u16) -> u16 {
     if value == 0 {
         max - 1
     } else {
