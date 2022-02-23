@@ -59,7 +59,7 @@ impl ConnectionShort {
     pub unsafe fn consume_unchecked(&mut self) {
         self.indicies -= 1;
         self.queue >>= 4;
-        core::ptr::copy(self.resources[1..].as_ptr(), self.resources.as_mut_ptr(), 2 * self.len() as usize); // TODO dynamic size or always 15?
+        core::ptr::copy(self.resources[1..].as_ptr(), self.resources.as_mut_ptr(), 15);
     }
 
     pub fn get(&self) -> Option<ResourceID> {
