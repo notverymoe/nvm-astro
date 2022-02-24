@@ -2,6 +2,11 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
+const PERF_PRINT_DEBUG:    bool = false;
+const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 4_000_000 };
+const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
+const PERF_SAMPLES:       usize = 100;
+
 use std::time::Instant;
 use bevy::{prelude::*, MinimalPlugins, app::{Events, AppExit}};
 
@@ -29,16 +34,12 @@ impl Plugin for FactoryPerfTest {
     }
 }
 
-
 #[derive(Component)]
 pub struct UnlimitedSource(ResourceID);
 
 #[derive(Component, Default)]
 pub struct PassthroughMachine;
 
-const PERF_TEST_SIZE:     usize = 4_000_000;
-const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
-const PERF_SAMPLES:       usize = 100;
 
 pub struct StartTime(Option<Instant>);
 
@@ -65,6 +66,10 @@ pub fn update_passthrough_machine(
     mut q: Query<(&mut Ports,), With<PassthroughMachine>>
 ) {
     for (mut port,) in q.iter_mut() {
+        if PERF_PRINT_DEBUG {
+            println!("[P] A: {:?}, B: {:?}", port.get(PortID::A).get(), port.get(PortID::B).get());
+        }
+
         if let Some((resource, count_send)) = port.get(PortID::A).get() {
             let (resouce_recv, count_recv) = port.get(PortID::B).get().unwrap_or((resource, 0));
             if resouce_recv == resource && count_recv != u16::MAX {
@@ -79,6 +84,10 @@ pub fn update_unlimited_source(
     mut q: Query<(&UnlimitedSource, &mut Ports,)>
 ) {
     for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
+        if PERF_PRINT_DEBUG {
+            println!("[S] A: {:?}, B: {:?}", port.get(PortID::A).get(), port.get(PortID::B).get());
+        }
+
         port.get_mut(PortID::B).set(*resource, 1);
         port.get_mut(PortID::A).clear();
     }
@@ -89,8 +98,8 @@ pub fn setup_performance_test(mut commands: Commands) {
         let src = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let dst = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let passthrough = commands.spawn().insert_bundle(PassthroughMachineBundle::default()).id();
-        add_connection(&mut commands,         src, passthrough, 10);
-        add_connection(&mut commands, passthrough,         dst, 10);
+        add_connection(&mut commands,         src, passthrough, 16);
+        add_connection(&mut commands, passthrough,         dst, 16);
     }
 }
 

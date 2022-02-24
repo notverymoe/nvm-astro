@@ -85,16 +85,8 @@ pub struct MachinePlugin;
 
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(ConnectionTick(0));
-
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send_recv);
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_recv.label("recv"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_send.label("send").after("recv"));
-
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_short_send_recv.before("tick"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_short_recv.label("recv"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, connection_short_send.label("send").after("recv"));
-        app.schedule.add_system_to_stage(FactoryStageInternal::Machine, update_connection_tick.label("tick").after("send"));
+        register_connection_stage::<ConnectionShort>(app);
+        register_connection_stage::<ConnectionLong >(app);
     }
 }

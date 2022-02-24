@@ -4,11 +4,13 @@
 
 #[derive(Debug)]
 pub struct RingBuffer<T> {
-    data:     *mut T,
-    head:     u16,
-    tail:     u16,
-    length:   u16,
-    capacity: u16,
+    /* -8 */ data:     *mut T,
+    /* -2 */ head:     u16,
+    /* -2 */ tail:     u16,
+    /* -2 */ length:   u16,
+    /* -2 */ capacity: u16,
+    /*----*/
+    /* 16 */
 }
 
 unsafe impl<T: Sync> Sync for RingBuffer<T> {}
