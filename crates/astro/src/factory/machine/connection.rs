@@ -6,7 +6,7 @@ use bevy::{prelude::{Component, Entity, Res, Query, Without, Mut}, ecs::system::
 
 use crate::factory::{FactoryTick, FactoryStageInternal};
 
-use super::{PortID, ConnectionLong, ConnectionShort, ResourceID, Ports};
+use super::{PortID, ConnectionU16, ConnectionU4, ResourceID, Ports};
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub struct ConnectionPortRecv(pub Entity, pub PortID);
@@ -15,11 +15,11 @@ pub struct ConnectionPortRecv(pub Entity, pub PortID);
 pub struct ConnectionPortSend(pub Entity, pub PortID);
 
 pub fn spawn_connection(entity: &mut EntityCommands, length: u16, send: Option<(Entity, PortID)>, recv: Option<(Entity, PortID)>) {
-    if length > 16 { 
-        entity.insert(ConnectionLong::new(length));
-    } else { 
-        entity.insert(ConnectionShort::new(length as u8));
-    }
+    match length {
+        length if length <=  16 => entity.insert( ConnectionU4::new(length as usize)),
+        //length if length <= 256 => entity.insert( ConnectionU8::new(length as u8)),
+        length                  => entity.insert(ConnectionU16::new(length)),
+    };
 
     if let Some((e, p)) = send {
         entity.insert(ConnectionPortSend(e, p));
@@ -37,6 +37,9 @@ pub trait ConnectionQueue {
     fn is_full(&self) -> bool;
     fn is_empty(&self) -> bool;
     fn is_ready_to_consume(&self, tick_factory: u32) -> bool;
+
+
+    fn resolve(&self, factory_tick: u32) -> Box<[Option<ResourceID>]>;
 }
 
 pub fn register_connection_stage<T: ConnectionQueue + Component +>(app: &mut bevy::prelude::App) {

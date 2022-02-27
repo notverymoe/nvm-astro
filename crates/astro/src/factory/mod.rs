@@ -34,6 +34,7 @@ impl PluginGroup for FactoryPlugins {
 
 #[derive(StageLabel, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FactoryStageInternal {
+    Tick,
     Power,
     Machine,
 }
@@ -52,10 +53,12 @@ pub struct FactoryStagePlugin;
 
 impl Plugin for FactoryStagePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.schedule.add_stage_after(         CoreStage::Update, FactoryStageInternal::Tick, SystemStage::single_threaded());
+        app.schedule.add_stage_after(FactoryStageInternal::Tick,        FactoryStage::Power, SystemStage::single_threaded());
+        app.schedule.add_stage_after(       FactoryStage::Power,      FactoryStage::Machine, SystemStage::single_threaded());
+
         app.insert_resource(FactoryTick(0));
-        app.schedule.add_system_to_stage(CoreStage::First, update_tick);
-        app.schedule.add_stage_after(  CoreStage::Update,   FactoryStage::Power, SystemStage::single_threaded());
-        app.schedule.add_stage_after(FactoryStage::Power, FactoryStage::Machine, SystemStage::single_threaded());
+        app.schedule.add_system_to_stage(FactoryStageInternal::Tick, update_tick);
     }
 }
 
@@ -86,7 +89,7 @@ pub struct MachinePlugin;
 impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
-        register_connection_stage::<ConnectionShort>(app);
-        register_connection_stage::<ConnectionLong >(app);
+        register_connection_stage::<ConnectionU4>(app);
+        register_connection_stage::<ConnectionU16 >(app);
     }
 }

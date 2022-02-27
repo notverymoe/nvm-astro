@@ -13,16 +13,16 @@ pub type ConnectionDuration = u16;
 pub struct Packet(u32, ResourceIDInnerType);
 
 #[derive(Component)]
-pub struct ConnectionLong(RingBuffer<Packet>);
+pub struct ConnectionU16(RingBuffer<Packet>);
 
-impl ConnectionLong {
+impl ConnectionU16 {
 
     pub fn new(length: u16) ->  Self {
         Self(RingBuffer::new(length))
     }
 }
 
-impl ConnectionQueue for ConnectionLong {
+impl ConnectionQueue for ConnectionU16 {
 
     unsafe fn enqueue_unchecked(&mut self, tick: u32, resource: ResourceID) {
         self.0.push_back(Packet(tick + self.0.capacity() as u32, resource.into_inner()));
@@ -46,6 +46,15 @@ impl ConnectionQueue for ConnectionLong {
 
     fn is_ready_to_consume(&self, tick: u32) -> bool {
         !self.0.is_empty() && self.0.front().0 < tick
+    }
+
+    fn resolve(&self, factory_tick: u32) -> Box<[Option<ResourceID>]> {
+        let mut result = vec![None; self.0.capacity().into()].into_boxed_slice();
+        for i in 0..self.0.len() {
+            let position = self.0.get(i).0 - factory_tick;
+            result[position as usize] = ResourceID::try_from_inner(self.0.get(i).1);
+        }
+        result
     }
 
 }

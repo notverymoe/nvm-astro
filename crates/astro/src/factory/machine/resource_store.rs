@@ -19,6 +19,10 @@ impl Default for ResourceStore {
 
 impl ResourceStore {
 
+    pub fn count(&self) -> u16 {
+        self.count
+    }
+
     pub fn set(&mut self, resource: ResourceID, count: u16) {
         self.resource = MaybeUninit::new(resource);
         self.count    = count;
