@@ -2,13 +2,13 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-const PERF_PRINT_DEBUG:    bool = true;
+const PERF_PRINT_DEBUG:    bool = false;
 const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 1_000_000 };
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 32 } else { 1000 };
 
 use std::time::Instant;
-use bevy::{prelude::*, MinimalPlugins, app::{Events, AppExit}};
+use bevy::{prelude::*, MinimalPlugins, app::AppExit, ecs::event::Events};
 
 use astro::factory::{FactoryPlugins, FactoryStage, spawn_connection, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionU4, ConnectionU16, ConnectionQueue, FactoryTick}; 
 
@@ -107,7 +107,7 @@ pub fn setup_performance_test(mut commands: Commands) {
 fn add_connection(commands: &mut Commands, from: Entity, to: Entity, length: ConnectionDuration) -> Entity {
     let mut entity = commands.spawn();
     spawn_connection(&mut entity, length, Some((to, PortID::A)), Some((from, PortID::B)));
-    return entity.id();
+    entity.id()
 }
 
 #[derive(Bundle)]
