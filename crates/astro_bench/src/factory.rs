@@ -2,7 +2,7 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-const PERF_PRINT_DEBUG:    bool = false;
+const PERF_PRINT_DEBUG:    bool = true;
 const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 1_000_000 };
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 32 } else { 1000 };
@@ -29,7 +29,7 @@ impl Plugin for FactoryPerfTest {
             .add_system_to_stage(     CoreStage::First,  start_timer               )
             .add_system_to_stage(FactoryStage::Machine,  update_passthrough_machine)
             .add_system_to_stage(FactoryStage::Machine,  update_unlimited_source   )
-            .add_system_to_stage(      CoreStage::Last, print_chains              )
+            .add_system_to_stage(      CoreStage::Last, print_chains               )
             .add_system_to_stage(      CoreStage::Last,  auto_exit                 )
             .add_startup_system(setup_performance_test);
     }

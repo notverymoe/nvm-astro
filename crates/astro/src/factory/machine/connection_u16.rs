@@ -52,7 +52,7 @@ impl ConnectionQueue for ConnectionU16 {
         let mut result = vec![None; self.0.capacity().into()].into_boxed_slice();
         for i in 0..self.0.len() {
             let position = self.0.get(i).0 - factory_tick;
-            result[position as usize] = ResourceID::try_from_inner(self.0.get(i).1);
+            result[self.0.capacity() as usize - position as usize] = ResourceID::try_from_inner(self.0.get(i).1);
         }
         result
     }
