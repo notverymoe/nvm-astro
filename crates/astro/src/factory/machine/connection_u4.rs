@@ -34,7 +34,9 @@ impl ConnectionU4 {
     }
 
     unsafe fn do_consume(&self) {
+        let index = self.index.get();
         self.index.set(self.index.get() >> 4);
+//        println!("{:016x} | {:016x}",index, self.index.get());
 
         let queue = (*self.queue.get()).as_mut_ptr();
         core::ptr::copy(queue.add(1), queue, 15);
@@ -49,8 +51,8 @@ impl ConnectionU4 {
 
         let head  = self.head.get();
         let index = self.index.get();
-        let mask  = (0xFFFF_FFFF_FFFF_FFFFu64.checked_shl(4*head as u32).unwrap_or(0))
-                 & !(0xFFFF_FFFF_FFFF_FFFFu64.checked_shl(4*tail as u32).unwrap_or(0));
+        let mask  = ((0xFFFF_FFFF_FFFF_FFFFu128 << (4*head))
+                  & !(0xFFFF_FFFF_FFFF_FFFFu128 << (4*tail))) as u64;
 
         self.index.set((index & !mask) | ((index & mask) - (0x1111_1111_1111_1111 & mask)));
         if (self.index.get() >> (4*head)) & 0xF == 0 {
@@ -78,7 +80,7 @@ impl ConnectionQueue for ConnectionU4 {
 
     unsafe fn consume_unchecked(&mut self) {
         self.do_consume();
-        self.head.set(0);
+        self.head.set(self.head.get().max(1)-1);
         self.tail -= 1;
     }
 

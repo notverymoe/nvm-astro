@@ -2,7 +2,7 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-const PERF_PRINT_DEBUG:    bool = true;
+const PERF_PRINT_DEBUG:    bool = false;
 const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 1_000_000 };
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 32 } else { 1000 };
@@ -78,11 +78,14 @@ pub fn update_passthrough_machine(
 }
 
 pub fn update_unlimited_source(
-    mut q: Query<(&UnlimitedSource, &mut Ports,)>
+    mut q: Query<(&UnlimitedSource, &mut Ports,)>,
+    t: Res<FactoryTick>
 ) {
     for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
-        port.get_mut(PortID::B).set(*resource, 1);
         port.get_mut(PortID::A).clear();
+        //if t.0 % 2 == 0 {
+            port.get_mut(PortID::B).set(*resource, 1);
+        //}
     }
 }
 
