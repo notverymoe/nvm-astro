@@ -2,7 +2,7 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-const PERF_PRINT_DEBUG:    bool = false;
+const PERF_PRINT_DEBUG:    bool = true;
 const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 1_000_000 };
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
 const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 32 } else { 1000 };
@@ -94,8 +94,8 @@ pub fn setup_performance_test(mut commands: Commands) {
         let producer = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let consumer = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let passthrough = commands.spawn().insert_bundle(PassthroughMachineBundle::default()).id();
-        let conveyor_1 = add_connection(&mut commands,    producer, passthrough, 16);
-        let conveyor_2 = add_connection(&mut commands, passthrough,    consumer, 16);
+        let conveyor_1 = add_connection(&mut commands,    producer, passthrough, 17);
+        let conveyor_2 = add_connection(&mut commands, passthrough,    consumer, 17);
 
         commands.spawn().insert(ChainView{
             producer,

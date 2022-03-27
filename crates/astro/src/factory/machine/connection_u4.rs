@@ -34,10 +34,7 @@ impl ConnectionU4 {
     }
 
     unsafe fn do_consume(&self) {
-        let index = self.index.get();
         self.index.set(self.index.get() >> 4);
-//        println!("{:016x} | {:016x}",index, self.index.get());
-
         let queue = (*self.queue.get()).as_mut_ptr();
         core::ptr::copy(queue.add(1), queue, 15);
         *queue.add(15) = None;

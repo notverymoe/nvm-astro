@@ -45,14 +45,20 @@ impl ConnectionQueue for ConnectionU16 {
     }
 
     fn is_ready_to_consume(&self, tick: u32) -> bool {
-        !self.0.is_empty() && self.0.front().0 < tick
+        !self.0.is_empty() && self.0.front().0 <= tick
     }
 
     fn resolve(&self, factory_tick: u32) -> Box<[Option<ResourceID>]> {
+        let capacity = self.0.capacity() as usize;
         let mut result = vec![None; self.0.capacity().into()].into_boxed_slice();
         for i in 0..self.0.len() {
-            let position = self.0.get(i).0 - factory_tick;
-            result[self.0.capacity() as usize - position as usize] = ResourceID::try_from_inner(self.0.get(i).1);
+            let position   = (self.0.get(i).0 - factory_tick) as usize;
+            let from_end   = capacity - position;
+            let from_end_i = capacity - (i + 1) as usize;
+            if result[from_end.min(from_end_i)].is_some() {
+                println!("Oops");
+            }
+            result[from_end.min(from_end_i)] = ResourceID::try_from_inner(self.0.get(i).1);
         }
         result
     }
