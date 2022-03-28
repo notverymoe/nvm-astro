@@ -90,6 +90,6 @@ impl Plugin for MachinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.schedule.add_stage_after(FactoryStage::Machine, FactoryStageInternal::Machine, SystemStage::single_threaded());
         register_connection_stage::<ConnectionU4 >(app);
-        register_connection_stage::<ConnectionU16>(app);
+        register_connection_stage::<ConnectionU32>(app);
     }
 }

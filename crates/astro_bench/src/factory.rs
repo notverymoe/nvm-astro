@@ -2,15 +2,15 @@
 ** NotVeryMoe Astro | Copyright 2021 NotVeryMoe (projects@notvery.moe) **
 \*=====================================================================*/
 
-const PERF_PRINT_DEBUG:    bool = true;
+const PERF_PRINT_DEBUG:    bool = false;
 const PERF_TEST_SIZE:     usize = if PERF_PRINT_DEBUG { 1 } else { 1_000_000 };
 const PERF_TEST_MACHINES: usize = PERF_TEST_SIZE*5;
-const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 32 } else { 1000 };
+const PERF_SAMPLES:       usize = if PERF_PRINT_DEBUG { 64 } else { 1000 };
 
 use std::time::Instant;
 use bevy::{prelude::*, MinimalPlugins, app::AppExit, ecs::event::Events};
 
-use astro::factory::{FactoryPlugins, FactoryStage, spawn_connection, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionU4, ConnectionU16, ConnectionQueue, FactoryTick}; 
+use astro::factory::{FactoryPlugins, FactoryStage, spawn_connection, ResourceID, PortID, Ports, ResourceType, ConnectionDuration, ConnectionU4, ConnectionU32, ConnectionQueue, FactoryTick}; 
 
 pub fn factory_bench() {
     App::new()
@@ -79,7 +79,7 @@ pub fn update_passthrough_machine(
 
 pub fn update_unlimited_source(
     mut q: Query<(&UnlimitedSource, &mut Ports,)>,
-    t: Res<FactoryTick>
+    _t: Res<FactoryTick>
 ) {
     for (UnlimitedSource(resource), mut port,) in q.iter_mut() {
         port.get_mut(PortID::A).clear();
@@ -94,8 +94,8 @@ pub fn setup_performance_test(mut commands: Commands) {
         let producer = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let consumer = commands.spawn().insert_bundle(UnlimitedSourceBundle::new(RESOURCE_SPEED.id())).id();
         let passthrough = commands.spawn().insert_bundle(PassthroughMachineBundle::default()).id();
-        let conveyor_1 = add_connection(&mut commands,    producer, passthrough, 17);
-        let conveyor_2 = add_connection(&mut commands, passthrough,    consumer, 17);
+        let conveyor_1 = add_connection(&mut commands,    producer, passthrough, 16);
+        let conveyor_2 = add_connection(&mut commands, passthrough,    consumer, 16);
 
         commands.spawn().insert(ChainView{
             producer,
@@ -148,7 +148,7 @@ pub struct ChainView {
 pub fn print_chains(
     tick: Res<FactoryTick>,
     q: Query<&ChainView>,
-    q_conveyor: Query<(Option<&ConnectionU4>, Option<&ConnectionU16>)>,
+    q_conveyor: Query<(Option<&ConnectionU4>, Option<&ConnectionU32>)>,
     q_passthrough: Query<&Ports, With<PassthroughMachine>>,
     q_generator: Query<&Ports, With<UnlimitedSource>>,
 ) {

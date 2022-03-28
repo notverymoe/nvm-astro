@@ -8,8 +8,8 @@ pub use connection::*;
 mod connection_u4;
 pub use connection_u4::*;
 
-mod connection_u16;
-pub use connection_u16::*;
+mod connection_u32;
+pub use connection_u32::*;
 
 mod ports;
 pub use ports::*;
@@ -20,5 +20,5 @@ pub use resource::*;
 mod resource_store;
 pub use resource_store::*;
 
-mod ringbuffer;
-pub use ringbuffer::*;
+mod packet_buffer;
+pub use packet_buffer::*;

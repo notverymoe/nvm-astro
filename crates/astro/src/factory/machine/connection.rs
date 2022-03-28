@@ -6,7 +6,7 @@ use bevy::{prelude::{Component, Entity, Res, Query, Without, Mut}, ecs::system::
 
 use crate::factory::{FactoryTick, FactoryStageInternal};
 
-use super::{PortID, ConnectionU16, ConnectionU4, ResourceID, Ports};
+use super::{PortID, ConnectionU32, ConnectionU4, ResourceID, Ports};
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub struct ConnectionPortRecv(pub Entity, pub PortID);
@@ -16,9 +16,8 @@ pub struct ConnectionPortSend(pub Entity, pub PortID);
 
 pub fn spawn_connection(entity: &mut EntityCommands, length: u16, send: Option<(Entity, PortID)>, recv: Option<(Entity, PortID)>) {
     match length {
-        length if length <=  16 => entity.insert( ConnectionU4::new(length as usize)),
-        //length if length <= 256 => entity.insert( ConnectionU8::new(length as u8)),
-        length                  => entity.insert(ConnectionU16::new(length)),
+        length if length <=  16 => entity.insert( ConnectionU4::new(length as u8)),
+        length                  => entity.insert(ConnectionU32::new(length as u32)),
     };
 
     if let Some((e, p)) = send {

@@ -22,12 +22,12 @@ unsafe impl Send for ConnectionU4 {}
 
 impl ConnectionU4 {
 
-    pub fn new(capacity: usize) -> Self {
+    pub fn new(capacity: u8) -> Self {
         assert!(capacity > 0 && capacity <= 16);
         Self{
             head: 0.into(),
             tail: 0,
-            capacity: capacity as u8,
+            capacity,
             index:    0.into(),
             queue: [None; 16].into(),
         }
