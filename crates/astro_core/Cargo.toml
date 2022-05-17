@@ -1,0 +1,17 @@
+[package]
+name = "astro"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default=[]
+client=["bevy/default"]
+
+[dependencies]
+compact-str = {path="../compact_str"}
+once_cell = "1.10.0"
+
+[dependencies.bevy]
+git="https://github.com/bevyengine/bevy.git"
+branch="main"
+default-features=false

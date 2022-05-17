@@ -1,0 +1,12 @@
+[package]
+name = "astro_bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.astro]
+path="../astro_core"
+
+[dependencies.bevy]
+git="https://github.com/bevyengine/bevy.git"
+branch="main"
+default-features=false
